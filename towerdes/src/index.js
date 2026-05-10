@@ -150,22 +150,27 @@ export default {
       );
     }
 
-    // 404 - Route not found
-    return new Response(
-      JSON.stringify({
-        error: "Not found",
-        message: `Route ${url.pathname} does not exist`,
-        available: [
-          "/api/health",
-          "/api/config",
-          "/api/auth/login",
-          "/api/maps/geocode",
-        ],
-      }),
-      {
-        status: 404,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      },
-    );
+    // /api/* không khớp route → 404 JSON
+    if (url.pathname.startsWith("/api/")) {
+      return new Response(
+        JSON.stringify({
+          error: "Not found",
+          message: `Route ${url.pathname} does not exist`,
+          available: [
+            "/api/health",
+            "/api/config",
+            "/api/auth/login",
+            "/api/maps/geocode",
+          ],
+        }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        },
+      );
+    }
+
+    // Fall-through: phục vụ static assets (index.html, script.js, ...) qua binding ASSETS
+    return env.ASSETS.fetch(request);
   },
 };
