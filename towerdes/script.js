@@ -674,15 +674,27 @@ function veBanDoAnten() {
   google.maps.event.addListener(tamCotMarker, "dragend", (e) => onDragAll(e));
 }
 
-function loadGoogleMaps() {
+// Lấy GOOGLE_MAPS_KEY từ Worker /api/config (key ẩn khỏi source) rồi inject script
+async function loadGoogleMaps() {
   if (typeof CONFIG === "undefined") {
     console.error("CONFIG chưa load!");
     return;
   }
-  const script = document.createElement("script");
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_KEY}&callback=initMap&libraries=geometry`;
-  script.async = true;
-  script.defer = true;
-  document.head.appendChild(script);
+  try {
+    const res = await fetch(CONFIG.CONFIG_PROXY);
+    const data = await res.json();
+    const key = data.GOOGLE_MAPS_KEY;
+    if (!key) {
+      console.error("GOOGLE_MAPS_KEY không có từ Worker /api/config");
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=initMap&libraries=geometry&loading=async`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  } catch (err) {
+    console.error("Lỗi khi load Google Maps:", err);
+  }
 }
 //loadGoogleMaps();

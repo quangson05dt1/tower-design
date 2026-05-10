@@ -540,7 +540,8 @@
         btn.textContent = "Đang kiểm tra...";
 
         try {
-          const res = await fetch(CONFIG.AUTH_URL, {
+          // Gọi qua Worker proxy (AUTH_PROXY), không gọi Apps Script trực tiếp
+          const res = await fetch(CONFIG.AUTH_PROXY, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, password }),

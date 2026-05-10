@@ -34,12 +34,12 @@ export default {
     // API Routes
     // ============================================================
 
-    // GET /api/config - Trả về config an toàn (không lộ secrets)
+    // GET /api/config - Trả về Google Maps API key cho frontend load script
+    // (Maps JS API bắt buộc phải có key ở client; secret giữ trên Worker)
     if (url.pathname === "/api/config" && method === "GET") {
       return new Response(
         JSON.stringify({
-          GOOGLE_MAPS_URL: "https://maps.googleapis.com/maps/api/js",
-          AUTH_ENDPOINT: "/api/auth/login",
+          GOOGLE_MAPS_KEY: env.GOOGLE_MAPS_KEY || "",
         }),
         {
           headers: {
