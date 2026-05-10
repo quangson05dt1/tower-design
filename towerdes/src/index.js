@@ -51,6 +51,8 @@ export default {
     }
 
     // POST /api/auth/login - Proxy Google Apps Script Auth
+    // Frontend POST JSON {username, password} → forward sang Apps Script doGet
+    // dạng ?action=login&u=...&p=... (tránh CORS preflight bên Apps Script)
     if (url.pathname === "/api/auth/login" && method === "POST") {
       try {
         const authUrl = env.AUTH_URL;
@@ -65,16 +67,15 @@ export default {
           );
         }
 
-        const body = await request.text();
+        const { username, password } = await request.json();
 
-        const response = await fetch(authUrl, {
-          method: "POST",
-          body: body,
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-        });
+        const gsUrl = new URL(authUrl);
+        gsUrl.searchParams.set("action", "login");
+        gsUrl.searchParams.set("u", username || "");
+        gsUrl.searchParams.set("p", password || "");
 
+        // Apps Script redirect 302 sang googleusercontent.com → fetch tự follow
+        const response = await fetch(gsUrl.toString(), { method: "GET" });
         const data = await response.text();
 
         return new Response(data, {
@@ -84,6 +85,67 @@ export default {
               response.headers.get("Content-Type") || "application/json",
             ...corsHeaders,
           },
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+    }
+
+    // GET /api/stations - Lấy danh sách trạm từ Google Sheet
+    if (url.pathname === "/api/stations" && method === "GET") {
+      try {
+        const authUrl = env.AUTH_URL;
+        if (!authUrl) {
+          return new Response(JSON.stringify({ error: "AUTH_URL not configured" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
+        }
+        const gsUrl = new URL(authUrl);
+        gsUrl.searchParams.set("action", "stations");
+        const response = await fetch(gsUrl.toString());
+        const data = await response.text();
+        return new Response(data, {
+          status: response.status,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+    }
+
+    // POST /api/stations/update - Ghi tọa độ thực tế + checklist
+    if (url.pathname === "/api/stations/update" && method === "POST") {
+      try {
+        const authUrl = env.AUTH_URL;
+        if (!authUrl) {
+          return new Response(JSON.stringify({ error: "AUTH_URL not configured" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
+        }
+        const body = await request.json();
+        const gsUrl = new URL(authUrl);
+        gsUrl.searchParams.set("action", "update");
+        gsUrl.searchParams.set("code", body.code || "");
+        gsUrl.searchParams.set("lat", body.lat ?? "");
+        gsUrl.searchParams.set("lng", body.lng ?? "");
+        gsUrl.searchParams.set("dienTich", body.dienTich || "");
+        gsUrl.searchParams.set("biTrung", body.biTrung || "");
+        gsUrl.searchParams.set("coDien", body.coDien || "");
+        gsUrl.searchParams.set("anToan", body.anToan || "");
+        gsUrl.searchParams.set("user", body.user || "");
+        const response = await fetch(gsUrl.toString());
+        const data = await response.text();
+        return new Response(data, {
+          status: response.status,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       } catch (error) {
         return new Response(JSON.stringify({ error: error.message }), {

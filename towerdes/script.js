@@ -19,7 +19,186 @@ document.addEventListener("DOMContentLoaded", function () {
   loadGoogleMaps();
   // Cập nhật dropdown móng co khi DOM sẵn sàng
   updateMongCoOptions();
+  // Load danh sách trạm + bind sự kiện kiểm tra sai lệch khi đổi lat/lng
+  loadStations();
+  ["lat1", "lng1"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", checkStationDistance);
+  });
 });
+
+/* ============================================================
+   STATIONS: Load danh sách, chọn trạm, kiểm tra sai lệch, apply
+   ============================================================ */
+let stationsData = []; // cache trạm từ Sheet
+
+async function loadStations() {
+  try {
+    const proxy = CONFIG.AUTH_PROXY.replace("/api/auth/login", "/api/stations");
+    const res = await fetch(proxy);
+    const data = await res.json();
+    if (!data.success) {
+      console.warn("Không load được Stations:", data.message);
+      return;
+    }
+    stationsData = data.stations || [];
+    const sel = document.getElementById("stationCode");
+    stationsData.forEach((s) => {
+      const opt = document.createElement("option");
+      opt.value = s.code;
+      opt.textContent = s.code;
+      sel.appendChild(opt);
+    });
+  } catch (err) {
+    console.error("Lỗi loadStations:", err);
+  }
+}
+
+function getSelectedStation() {
+  const code = document.getElementById("stationCode").value;
+  return stationsData.find((s) => s.code === code) || null;
+}
+
+function onStationChange() {
+  const s = getSelectedStation();
+  const info = document.getElementById("stationInfo");
+  if (!s) {
+    info.style.display = "none";
+    document.getElementById("distanceStatus").style.display = "none";
+    return;
+  }
+  info.style.display = "block";
+  info.innerHTML = `Thiết kế: <b>${s.latDesign}, ${s.lngDesign}</b> • Sai lệch cho phép: <b>${s.maxDeviationM} m</b>`;
+
+  // Nếu trạm đã có tọa độ thực tế → tự fill, ngược lại fill theo thiết kế
+  const lat = s.latActual ?? s.latDesign;
+  const lng = s.lngActual ?? s.lngDesign;
+  if (lat != null) document.getElementById("lat1").value = lat;
+  if (lng != null) document.getElementById("lng1").value = lng;
+
+  // Khôi phục checklist đã lưu (nếu có)
+  ["dienTich", "biTrung", "coDien", "anToan"].forEach((key) => {
+    const raw = s[key] || "";
+    const flag = raw.charAt(0); // 'Y' hoặc 'N'
+    const note = raw.slice(2).trim(); // sau "Y - " hoặc "N - "
+    document
+      .querySelectorAll(`input[name="${key}"]`)
+      .forEach((r) => (r.checked = r.value === flag));
+    const noteEl = document.querySelector(`.cl-note[data-for="${key}"]`);
+    if (noteEl) noteEl.value = note;
+  });
+
+  checkStationDistance();
+}
+
+// Haversine: khoảng cách 2 điểm (m)
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function checkStationDistance() {
+  const s = getSelectedStation();
+  const box = document.getElementById("distanceStatus");
+  if (!s || s.latDesign == null) {
+    box.style.display = "none";
+    return;
+  }
+  const lat = parseFloat(document.getElementById("lat1").value);
+  const lng = parseFloat(document.getElementById("lng1").value);
+  if (isNaN(lat) || isNaN(lng)) {
+    box.style.display = "none";
+    return;
+  }
+  const d = haversine(s.latDesign, s.lngDesign, lat, lng);
+  const ok = d <= s.maxDeviationM;
+  box.style.display = "block";
+  box.style.background = ok ? "#d1fae5" : "#fee2e2";
+  box.style.color = ok ? "#065f46" : "#991b1b";
+  box.textContent = ok
+    ? `✅ Khoảng cách ${d.toFixed(2)} m (≤ ${s.maxDeviationM} m) — Đạt`
+    : `❌ Khoảng cách ${d.toFixed(2)} m (> ${s.maxDeviationM} m) — Không đảm bảo`;
+}
+
+// Gộp Y/N + ghi chú thành "Y - note" hoặc "N - note"
+function getChecklistValue(key) {
+  const radio = document.querySelector(`input[name="${key}"]:checked`);
+  const note = (
+    document.querySelector(`.cl-note[data-for="${key}"]`)?.value || ""
+  ).trim();
+  if (!radio) return "";
+  return note ? `${radio.value} - ${note}` : radio.value;
+}
+
+async function applyStationUpdate() {
+  const s = getSelectedStation();
+  const status = document.getElementById("applyStatus");
+  status.style.display = "block";
+
+  if (!s) {
+    status.style.color = "#991b1b";
+    status.textContent = "⚠️ Vui lòng chọn mã trạm trước.";
+    return;
+  }
+  const lat = parseFloat(document.getElementById("lat1").value);
+  const lng = parseFloat(document.getElementById("lng1").value);
+  if (isNaN(lat) || isNaN(lng)) {
+    status.style.color = "#991b1b";
+    status.textContent = "⚠️ Tọa độ thực tế không hợp lệ.";
+    return;
+  }
+
+  const user = JSON.parse(sessionStorage.getItem("tower_user") || "{}").name || "";
+
+  const proxy = CONFIG.AUTH_PROXY.replace(
+    "/api/auth/login",
+    "/api/stations/update",
+  );
+
+  status.style.color = "#1f2937";
+  status.textContent = "⏳ Đang cập nhật...";
+
+  try {
+    const res = await fetch(proxy, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: s.code,
+        lat: lat,
+        lng: lng,
+        dienTich: getChecklistValue("dienTich"),
+        biTrung: getChecklistValue("biTrung"),
+        coDien: getChecklistValue("coDien"),
+        anToan: getChecklistValue("anToan"),
+        user: user,
+      }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      status.style.color = "#065f46";
+      status.textContent = "✅ " + data.message;
+      // Cập nhật cache local để lần chọn tiếp theo lấy data mới
+      s.latActual = lat;
+      s.lngActual = lng;
+      s.dienTich = getChecklistValue("dienTich");
+      s.biTrung = getChecklistValue("biTrung");
+      s.coDien = getChecklistValue("coDien");
+      s.anToan = getChecklistValue("anToan");
+    } else {
+      status.style.color = "#991b1b";
+      status.textContent = "❌ " + (data.message || "Lỗi không xác định");
+    }
+  } catch (err) {
+    status.style.color = "#991b1b";
+    status.textContent = "❌ Lỗi kết nối: " + err.message;
+  }
+}
 
 /* ============================================================
    VALIDATION: Cập nhật dropdown số móng co dựa trên loại cột

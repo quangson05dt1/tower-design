@@ -336,6 +336,34 @@
 
         <!-- TAB 1 -->
         <div id="tab1" class="tab-content active">
+          <!-- ===== CHỌN TRẠM (load từ Google Sheet) ===== -->
+          <div class="form-group">
+            <label>Mã trạm:</label>
+            <select id="stationCode" onchange="onStationChange()">
+              <option value="">-- Chọn mã trạm --</option>
+            </select>
+            <div
+              id="stationInfo"
+              style="
+                margin-top: 0.5rem;
+                font-size: 0.85rem;
+                color: #4b5563;
+                display: none;
+              "
+            ></div>
+            <div
+              id="distanceStatus"
+              style="
+                margin-top: 0.5rem;
+                padding: 0.5rem;
+                border-radius: 0.4rem;
+                font-size: 0.85rem;
+                font-weight: 600;
+                display: none;
+              "
+            ></div>
+          </div>
+
           <div class="form-group">
             <label data-lang="lat">Tọa độ tâm cột (Vĩ độ):</label>
             <div class="flex gap-2">
@@ -433,6 +461,110 @@
           </button>
 
           <div id="infoPanel1" class="info-panel"></div>
+
+          <!-- ===== CHECKLIST NGHIỆM THU ===== -->
+          <div
+            id="checklistSection"
+            style="
+              margin-top: 1.25rem;
+              padding-top: 1rem;
+              border-top: 2px solid #e5e7eb;
+            "
+          >
+            <h3 style="font-weight: 700; margin-bottom: 0.75rem; color: #1f2937">
+              📋 Checklist nghiệm thu
+            </h3>
+
+            <div class="checklist-item" data-key="dienTich">
+              <label style="font-weight: 600">Diện tích đất:</label>
+              <div class="flex gap-2" style="margin: 0.25rem 0">
+                <label style="font-weight: 400; flex: 1">
+                  <input type="radio" name="dienTich" value="Y" /> Đảm bảo
+                </label>
+                <label style="font-weight: 400; flex: 1">
+                  <input type="radio" name="dienTich" value="N" /> Không đảm bảo
+                </label>
+              </div>
+              <input
+                type="text"
+                class="cl-note"
+                data-for="dienTich"
+                placeholder="Ghi chú..."
+              />
+            </div>
+
+            <div class="checklist-item" data-key="biTrung" style="margin-top: 0.75rem">
+              <label style="font-weight: 600">Địa hình trũng:</label>
+              <div class="flex gap-2" style="margin: 0.25rem 0">
+                <label style="font-weight: 400; flex: 1">
+                  <input type="radio" name="biTrung" value="N" /> Không trũng
+                </label>
+                <label style="font-weight: 400; flex: 1">
+                  <input type="radio" name="biTrung" value="Y" /> Bị trũng
+                </label>
+              </div>
+              <input
+                type="text"
+                class="cl-note"
+                data-for="biTrung"
+                placeholder="Ghi chú..."
+              />
+            </div>
+
+            <div class="checklist-item" data-key="coDien" style="margin-top: 0.75rem">
+              <label style="font-weight: 600">Nguồn điện:</label>
+              <div class="flex gap-2" style="margin: 0.25rem 0">
+                <label style="font-weight: 400; flex: 1">
+                  <input type="radio" name="coDien" value="Y" /> Có điện
+                </label>
+                <label style="font-weight: 400; flex: 1">
+                  <input type="radio" name="coDien" value="N" /> Không có
+                </label>
+              </div>
+              <input
+                type="text"
+                class="cl-note"
+                data-for="coDien"
+                placeholder="Ghi chú..."
+              />
+            </div>
+
+            <div class="checklist-item" data-key="anToan" style="margin-top: 0.75rem">
+              <label style="font-weight: 600">An toàn:</label>
+              <div class="flex gap-2" style="margin: 0.25rem 0">
+                <label style="font-weight: 400; flex: 1">
+                  <input type="radio" name="anToan" value="Y" /> Đảm bảo
+                </label>
+                <label style="font-weight: 400; flex: 1">
+                  <input type="radio" name="anToan" value="N" /> Không đảm bảo
+                </label>
+              </div>
+              <input
+                type="text"
+                class="cl-note"
+                data-for="anToan"
+                placeholder="Ghi chú..."
+              />
+            </div>
+
+            <button
+              class="btn"
+              style="margin-top: 1rem; background-color: #10b981"
+              onclick="applyStationUpdate()"
+            >
+              💾 Apply & Cập nhật trạm
+            </button>
+            <div
+              id="applyStatus"
+              style="
+                margin-top: 0.5rem;
+                font-size: 0.85rem;
+                font-weight: 600;
+                text-align: center;
+                display: none;
+              "
+            ></div>
+          </div>
         </div>
 
         <!-- TAB 2 -->
