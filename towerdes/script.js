@@ -5,7 +5,7 @@ let rectangles = [];
 let initialLayout = {};
 let activeTab = "tab1";
 let mapSelectionMode = false; // Chế độ chọn tọa độ trên bản đồ
-let mapSelectionTab = null;  // Tab nào đang chọn
+let mapSelectionTab = null; // Tab nào đang chọn
 
 /* ============================================================
    1. BẮT BUỘC: Export initMap ra global để Google Maps gọi được
@@ -58,24 +58,26 @@ function initMap() {
     disableDefaultUI: true,
     gestureHandling: "greedy",
   });
-  
+
   // Sự kiện click bản đồ để chọn tọa độ
   map.addListener("click", (e) => {
     if (mapSelectionMode && mapSelectionTab) {
       const lat = e.latLng.lat().toFixed(6);
       const lng = e.latLng.lng().toFixed(6);
-      
-      const tabNum = mapSelectionTab === 'tab1' ? 1 : 2;
+
+      const tabNum = mapSelectionTab === "tab1" ? 1 : 2;
       document.getElementById(`lat${tabNum}`).value = lat;
       document.getElementById(`lng${tabNum}`).value = lng;
-      
+
       // Tắt chế độ chọn
       toggleMapSelection(mapSelectionTab);
-      
-      console.log(`Chọn từ bản đồ Tab ${mapSelectionTab}: Lat=${lat}, Lng=${lng}`);
+
+      console.log(
+        `Chọn từ bản đồ Tab ${mapSelectionTab}: Lat=${lat}, Lng=${lng}`,
+      );
     }
   });
-  
+
   openTab("tab1");
   addAntenFields();
 }
@@ -146,7 +148,9 @@ function getGPS(tabName) {
     return;
   }
 
-  const btn = document.getElementById(`mapSelectBtn${tabName === 'tab1' ? 1 : 2}`);
+  const btn = document.getElementById(
+    `mapSelectBtn${tabName === "tab1" ? 1 : 2}`,
+  );
   const originalText = btn.innerText;
   btn.innerText = "📍 Đang lấy...";
   btn.disabled = true;
@@ -155,29 +159,30 @@ function getGPS(tabName) {
     (position) => {
       const lat = position.coords.latitude.toFixed(6);
       const lng = position.coords.longitude.toFixed(6);
-      
-      document.getElementById(`lat${tabName === 'tab1' ? 1 : 2}`).value = lat;
-      document.getElementById(`lng${tabName === 'tab1' ? 1 : 2}`).value = lng;
-      
+
+      document.getElementById(`lat${tabName === "tab1" ? 1 : 2}`).value = lat;
+      document.getElementById(`lng${tabName === "tab1" ? 1 : 2}`).value = lng;
+
       btn.innerText = "✅ Thành công!";
       setTimeout(() => {
         btn.innerText = originalText;
         btn.disabled = false;
       }, 2000);
-      
+
       console.log(`GPS Tab ${tabName}: Lat=${lat}, Lng=${lng}`);
     },
     (error) => {
       let errMsg = "❌ Không lấy được GPS";
       if (error.code === error.PERMISSION_DENIED) errMsg += " (Từ chối quyền)";
-      else if (error.code === error.POSITION_UNAVAILABLE) errMsg += " (GPS không khả dụng)";
+      else if (error.code === error.POSITION_UNAVAILABLE)
+        errMsg += " (GPS không khả dụng)";
       else if (error.code === error.TIMEOUT) errMsg += " (Hết thời gian)";
-      
+
       alert(errMsg);
       btn.innerText = originalText;
       btn.disabled = false;
     },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
   );
 }
 
@@ -187,22 +192,23 @@ function getGPS(tabName) {
 function toggleMapSelection(tabName) {
   mapSelectionMode = !mapSelectionMode;
   mapSelectionTab = mapSelectionMode ? tabName : null;
-  
-  const btn = document.getElementById(`mapSelectBtn${tabName === 'tab1' ? 1 : 2}`);
-  
+
+  const btn = document.getElementById(
+    `mapSelectBtn${tabName === "tab1" ? 1 : 2}`,
+  );
+
   if (mapSelectionMode) {
     btn.style.backgroundColor = "#10b981";
     btn.style.color = "white";
     btn.innerText = "🗺️ Chọn... (click bản đồ)";
-    map.setOptions({ draggableCursor: 'crosshair' });
+    map.setOptions({ draggableCursor: "crosshair" });
   } else {
     btn.style.backgroundColor = "";
     btn.style.color = "";
     btn.innerText = "🗺️ Chọn";
-    map.setOptions({ draggableCursor: 'grab' });
+    map.setOptions({ draggableCursor: "grab" });
   }
 }
-
 
 // Hàm vẽ bản đồ cho tab 1 (móng cột)
 function veBanDoCot() {

@@ -1,0 +1,35 @@
+name = "tower-design-api"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+type = "javascript"
+
+# ============================================================
+# Cloudflare Pages Project Configuration
+# ============================================================
+# Kết nối với Pages project (nếu deploy cùng)
+# pages_build_output_dir = "./"
+
+# ============================================================
+# Environment Variables (Development)
+# ============================================================
+vars = { ENVIRONMENT = "development" }
+
+# ============================================================
+# Secrets (Production) - Thêm via: wrangler secret put KEY_NAME
+# ============================================================
+# [env.production]
+# vars = { ENVIRONMENT = "production" }
+
+# ============================================================
+# CORS Configuration
+# ============================================================
+routes = [
+  { pattern = "example.com/api/*", zone_name = "example.com" }
+]
+
+# ============================================================
+# Build Configuration
+# ============================================================
+[build]
+command = "npm install"
+cwd = "./"
