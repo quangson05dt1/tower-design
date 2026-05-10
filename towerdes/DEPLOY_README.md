@@ -23,12 +23,14 @@ towerdes/
 ## 🚀 Quick Start
 
 ### 1. Setup Local
+
 ```bash
 cd towerdes
 npm install
 ```
 
 ### 2. Cấu hình Secrets
+
 ```bash
 wrangler login
 wrangler secret put GOOGLE_MAPS_KEY       # Nhập API key
@@ -36,11 +38,13 @@ wrangler secret put AUTH_URL              # Nhập Google Apps Script URL
 ```
 
 ### 3. Deploy
+
 ```bash
 wrangler deploy
 ```
 
 ### 4. Cập nhật Frontend
+
 Thay URL Worker vào script.js (xem DEPLOY_WORKERS.md)
 
 ---
@@ -48,11 +52,13 @@ Thay URL Worker vào script.js (xem DEPLOY_WORKERS.md)
 ## 🔐 Bảo vệ
 
 ### Trước (không an toàn):
+
 - API keys công khai trong `config.js`
 - Frontend gọi trực tiếp Google APIs
 - Có thể bị abuse/overuse
 
 ### Sau (an toàn):
+
 - API keys lưu trong Cloudflare Secrets
 - Frontend gọi qua Worker Proxy (`/api/...`)
 - Có thể implement rate limiting/monitoring
@@ -71,16 +77,19 @@ Thay URL Worker vào script.js (xem DEPLOY_WORKERS.md)
 ## ✅ Testing
 
 ### Test Health Check
+
 ```bash
 curl https://tower-design-api.YOUR_USERNAME.workers.dev/api/health
 ```
 
 ### Test Config
+
 ```bash
 curl https://tower-design-api.YOUR_USERNAME.workers.dev/api/config
 ```
 
 ### Test Geocode (Maps)
+
 ```bash
 curl -X POST https://tower-design-api.YOUR_USERNAME.workers.dev/api/maps/geocode \
   -H "Content-Type: application/json" \
@@ -92,6 +101,7 @@ curl -X POST https://tower-design-api.YOUR_USERNAME.workers.dev/api/maps/geocode
 ## 🆘 Troubleshooting
 
 ### "Secrets not configured"
+
 ```bash
 wrangler secret list
 # Nếu rỗng, chạy:
@@ -100,12 +110,14 @@ wrangler secret put AUTH_URL
 ```
 
 ### "Worker not responding"
+
 ```bash
 wrangler tail          # Xem logs
 wrangler deploy        # Deploy lại
 ```
 
 ### "CORS error"
+
 - Kiểm tra `corsHeaders` trong `src/index.js`
 - Đảm bảo `Access-Control-Allow-Origin` được set
 
@@ -136,15 +148,18 @@ Return response to Frontend
 ## 📌 Lưu ý quan trọng
 
 ⚠️ **Không commit `.env` file!**
+
 - `.gitignore` đã exclude nó
 - Production dùng `wrangler secret put`
 
 ⚠️ **Cloudflare Secrets tồn tại ở mỗi environment:**
+
 - Production (custom domain)
 - Staging
 - Development
 
 ✅ **Tất cả requests đều qua Proxy**
+
 - Không có hardcoded API keys
 - An toàn hơn khi deploy public
 
