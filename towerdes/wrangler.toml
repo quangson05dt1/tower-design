@@ -1,5 +1,8 @@
-name = "tower-design-api"
-main = "src/index.js"
+# ⚠️ KHÔNG dùng config này nữa — đã gộp vào ../wrangler.jsonc
+# Giữ lại tham khảo, không deploy từ folder này.
+# Chạy `wrangler deploy` ở thư mục cha (towerdesign/).
+name = "tower-design-api-DEPRECATED"
+# main = "src/index.js"
 compatibility_date = "2024-01-01"
 type = "javascript"
 
