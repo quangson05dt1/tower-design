@@ -1,12 +1,16 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tower-design",
+  "name": "towerdesign",
   "compatibility_date": "2026-05-10",
+  "main": "towerdes/src/index.js",
   "observability": {
     "enabled": true
   },
+  // Worker xử lý /api/*, request khác fall-through sang static qua binding ASSETS.
+  // Chỉ thư mục public/ được publish → src/, package.json, *.md không bị lộ.
   "assets": {
-    "directory": "towerdes"
+    "directory": "towerdes/public",
+    "binding": "ASSETS"
   },
   "compatibility_flags": [
     "nodejs_compat"

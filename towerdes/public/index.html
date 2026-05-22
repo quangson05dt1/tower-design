@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-lang="title">Thiết kế vị trí cột và anten</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+      /* ===== TECHNICAL THEME ===== */
+      :root {
+        --bg: #0f172a;
+        --surface: #ffffff;
+        --surface-alt: #f8fafc;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --text-muted: #64748b;
+        --primary: #0f172a;
+        --primary-hover: #1e293b;
+        --accent: #0891b2;
+        --accent-hover: #0e7490;
+        --success: #10b981;
+        --success-bg: #d1fae5;
+        --danger: #ef4444;
+        --danger-bg: #fee2e2;
+        --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter",
+          sans-serif;
+        background-color: #f1f5f9;
+        margin: 0;
+        padding: 0.75rem;
+        color: var(--text);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .container {
+        max-width: 1500px;
+        margin: 0 auto;
+        gap: 0.75rem;
+      }
+
+      .control-panel,
+      .map-container {
+        background-color: var(--surface);
+        border-radius: 0.5rem;
+        box-shadow:
+          0 1px 3px rgba(15, 23, 42, 0.06),
+          0 1px 2px rgba(15, 23, 42, 0.04);
+        border: 1px solid var(--border);
+      }
+      .control-panel {
+        padding: 1rem;
+      }
+
+      /* App header bar */
+      .app-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .app-header h1 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin: 0;
+        color: var(--primary);
+        letter-spacing: -0.01em;
+      }
+
+      /* Language switcher (góc phải header) */
+      .language-switch select {
+        padding: 0.35rem 0.5rem;
+        font-size: 0.8rem;
+        background: var(--surface-alt);
+        border-radius: 0.4rem;
+        border: 1px solid var(--border);
+      }
+
+      /* Form */
+      .form-group {
+        margin-bottom: 0.75rem;
+      }
+      label {
+        display: block;
+        margin-bottom: 0.3rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 0.55rem 0.7rem;
+        border-radius: 0.4rem;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        font-size: 0.9rem;
+        font-family: inherit;
+        color: var(--text);
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+      }
+      input:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.15);
+      }
+      /* Coordinates dùng font monospace */
+      #lat1,
+      #lng1,
+      #lat2,
+      #lng2,
+      #stationCode {
+        font-family: var(--mono);
+        font-size: 0.88rem;
+      }
+
+      /* Buttons */
+      .btn {
+        width: 100%;
+        padding: 0.7rem 1rem;
+        background-color: var(--primary);
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.88rem;
+        border-radius: 0.4rem;
+        cursor: pointer;
+        text-align: center;
+        transition:
+          background-color 0.15s,
+          transform 0.05s;
+        border: none;
+      }
+      .btn:hover {
+        background-color: var(--primary-hover);
+      }
+      .btn:active {
+        transform: scale(0.98);
+      }
+      .btn:disabled {
+        background-color: #94a3b8;
+        cursor: not-allowed;
+      }
+      .btn-accent {
+        background-color: var(--accent);
+      }
+      .btn-accent:hover {
+        background-color: var(--accent-hover);
+      }
+      .btn-success {
+        background-color: var(--success);
+      }
+      .btn-success:hover {
+        background-color: #059669;
+      }
+      .btn.w-auto {
+        width: auto;
+        padding: 0.55rem 0.8rem;
+        white-space: nowrap;
+        font-size: 0.82rem;
+      }
+
+      .flex {
+        display: flex;
+      }
+      .flex-1 {
+        flex: 1;
+      }
+      .gap-2 {
+        gap: 0.5rem;
+      }
+
+      /* Map */
+      #map {
+        height: 100%;
+        width: 100%;
+        border-radius: 0.5rem;
+      }
+      .map-container {
+        height: 65vh;
+        padding: 0.5rem;
+        position: relative;
+      }
+
+      /* La bàn overlay góc trên phải bản đồ — kim luôn chỉ chính bắc */
+      #compass-overlay {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        width: 64px;
+        height: 64px;
+        z-index: 10;
+        opacity: 0.72;
+        pointer-events: none;
+        filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+      }
+      #compass-overlay svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #compass-needle {
+        transition: transform 0.3s ease;
+      }
+
+      .info-panel {
+        background-color: var(--surface-alt);
+        padding: 0.7rem;
+        border-radius: 0.4rem;
+        margin-top: 0.75rem;
+        font-size: 0.82rem;
+        color: var(--text);
+        border: 1px solid var(--border);
+        font-family: var(--mono);
+        white-space: pre-wrap;
+      }
+      .info-panel:empty {
+        display: none;
+      }
+
+      /* Tabs */
+      .tabs-bar {
+        display: flex;
+        gap: 2px;
+        background: var(--surface-alt);
+        padding: 3px;
+        border-radius: 0.5rem;
+        margin-bottom: 0.85rem;
+      }
+      .tab-button {
+        flex: 1;
+        padding: 0.5rem 0.8rem;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        font-weight: 600;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        border-radius: 0.35rem;
+        transition: all 0.15s;
+      }
+      .tab-button.active {
+        background: var(--surface);
+        color: var(--primary);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+
+      /* Section card (cho checklist, station info, ...) */
+      .section-card {
+        background: var(--surface-alt);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 0.8rem;
+        margin-top: 0.9rem;
+      }
+      .section-card h3 {
+        font-size: 0.78rem;
+        font-weight: 700;
+        margin: 0 0 0.6rem 0;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      /* Station info / status */
+      #stationInfo {
+        margin-top: 0.4rem;
+        padding: 0.5rem 0.6rem;
+        background: var(--surface-alt);
+        border: 1px solid var(--border);
+        border-radius: 0.4rem;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        display: none;
+        font-family: var(--mono);
+      }
+      #distanceStatus {
+        margin-top: 0.4rem;
+        padding: 0.5rem 0.7rem;
+        border-radius: 0.4rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        display: none;
+      }
+
+      /* Checklist items */
+      .checklist-item {
+        margin-bottom: 0.65rem;
+      }
+      .checklist-item:last-child {
+        margin-bottom: 0;
+      }
+      .checklist-item > label {
+        margin-bottom: 0.25rem;
+        font-size: 0.78rem;
+      }
+      .radio-row {
+        display: flex;
+        gap: 0.4rem;
+        margin-bottom: 0.3rem;
+      }
+      .radio-row label {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.45rem 0.5rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 0.35rem;
+        cursor: pointer;
+        font-size: 0.82rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        text-transform: none;
+        letter-spacing: 0;
+        gap: 0.35rem;
+        margin: 0;
+      }
+      .radio-row label:has(input:checked) {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+      .radio-row input[type="radio"] {
+        width: auto;
+        margin: 0;
+        accent-color: #fff;
+      }
+      .cl-note {
+        font-size: 0.82rem;
+        padding: 0.45rem 0.6rem;
+      }
+
+      #applyStatus {
+        margin-top: 0.5rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-align: center;
+        display: none;
+      }
+
+      .anchors-hint {
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        margin-top: 0.3rem;
+        display: block;
+        font-style: italic;
+      }
+
+      /* ===== LOGIN SCREEN ===== */
+      #login-screen {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      #login-screen.hidden {
+        display: none;
+      }
+
+      .login-box {
+        background: #fff;
+        border-radius: 1.25rem;
+        padding: 2.5rem 2rem;
+        width: 100%;
+        max-width: 400px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+      .login-logo {
+        text-align: center;
+        margin-bottom: 1.5rem;
+      }
+      .login-logo h1 {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #1e3a5f;
+        margin-top: 0.5rem;
+      }
+      .login-logo p {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+      }
+      .login-input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1.5px solid #d1d5db;
+        border-radius: 0.6rem;
+        font-size: 1rem;
+        margin-bottom: 1rem;
+        box-sizing: border-box;
+        transition: border-color 0.2s;
+        outline: none;
+      }
+      .login-input:focus {
+        border-color: #2563eb;
+      }
+      .login-btn {
+        width: 100%;
+        padding: 0.85rem;
+        background: #2563eb;
+        color: #fff;
+        font-weight: 700;
+        font-size: 1rem;
+        border: none;
+        border-radius: 0.6rem;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .login-btn:hover {
+        background: #1d4ed8;
+      }
+      .login-btn:disabled {
+        background: #93c5fd;
+        cursor: not-allowed;
+      }
+      .login-error {
+        background: #fee2e2;
+        color: #b91c1c;
+        border-radius: 0.5rem;
+        padding: 0.6rem 1rem;
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+        display: none;
+      }
+      .login-error.show {
+        display: block;
+      }
+      .login-footer {
+        text-align: center;
+        margin-top: 1.25rem;
+        font-size: 0.8rem;
+        color: #9ca3af;
+      }
+      /* Thanh trên cùng sau khi đăng nhập */
+      #user-bar {
+        display: none;
+        background: var(--primary);
+        color: #fff;
+        padding: 0.45rem 1rem;
+        font-size: 0.82rem;
+        align-items: center;
+        justify-content: space-between;
+        border-radius: 0.4rem;
+        margin: 0 auto 0.75rem;
+        max-width: 1500px;
+      }
+      #user-bar.show {
+        display: flex;
+      }
+      #logout-btn {
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #fff;
+        padding: 0.3rem 0.75rem;
+        border-radius: 0.35rem;
+        cursor: pointer;
+        font-size: 0.78rem;
+        font-weight: 500;
+      }
+      #logout-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      /* ===== MOBILE: bản đồ to hơn, layout dọc, control panel scroll riêng ===== */
+      @media (max-width: 1023px) {
+        body {
+          padding: 0.5rem;
+        }
+        .container {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        /* Map đứng đầu khi mobile để dễ nhìn */
+        .map-container {
+          order: -1;
+          height: 70vh;
+          min-height: 400px;
+        }
+        .control-panel {
+          padding: 0.85rem;
+        }
+        .app-header h1 {
+          font-size: 0.95rem;
+        }
+        /* Stack 2 ô lat/lng + button GPS xuống */
+        .control-panel .flex.gap-2 {
+          flex-wrap: nowrap;
+        }
+      }
+
+      /* ===== DESKTOP: side-by-side, map chiếm phần lớn ===== */
+      @media (min-width: 1024px) {
+        body {
+          padding: 1rem;
+        }
+        .container {
+          display: flex;
+          flex-direction: row;
+          min-height: calc(100vh - 6rem);
+          gap: 1rem;
+        }
+        .control-panel {
+          flex: 0 0 380px;
+          max-height: calc(100vh - 6rem);
+          overflow-y: auto;
+        }
+        .map-container {
+          flex: 1;
+          height: auto;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- ===== MÀN HÌNH ĐĂNG NHẬP ===== -->
+    <div id="login-screen">
+      <div class="login-box">
+        <div class="login-logo">
+          <div style="font-size: 2.5rem">📡</div>
+          <h1>Tower Design</h1>
+          <p data-lang="loginSub">Hệ thống thiết kế vị trí cột và anten</p>
+        </div>
+
+        <div id="login-error" class="login-error"></div>
+
+        <input
+          type="text"
+          id="login-username"
+          class="login-input"
+          placeholder="Tên đăng nhập"
+          data-lang-placeholder="loginUserPh"
+          autocomplete="username"
+        />
+
+        <input
+          type="password"
+          id="login-password"
+          class="login-input"
+          placeholder="Mật khẩu"
+          data-lang-placeholder="loginPassPh"
+          autocomplete="current-password"
+        />
+
+        <button
+          id="login-btn"
+          class="login-btn"
+          onclick="doLogin()"
+          data-lang="loginBtn"
+        >
+          Đăng nhập
+        </button>
+
+        <div class="login-footer" data-lang="loginFooter">
+          Chỉ dành cho nội bộ
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== THANH USER SAU KHI ĐĂNG NHẬP ===== -->
+    <div id="user-bar">
+      <span>
+        👤 <span data-lang="greeting">Xin chào</span>,
+        <strong id="user-name"></strong>
+      </span>
+      <button id="logout-btn" onclick="doLogout()" data-lang="logoutBtn">
+        Đăng xuất
+      </button>
+    </div>
+
+    <div class="container">
+      <div class="control-panel">
+        <!-- Header gọn: tên app + chọn ngôn ngữ -->
+        <div class="app-header">
+          <h1 data-lang="header">Thiết kế vị trí cột và anten</h1>
+          <div class="language-switch">
+            <select id="languageSelect" onchange="changeLanguage()">
+              <option value="vi">🇻🇳 VI</option>
+              <option value="en">🇬🇧 EN</option>
+              <option value="pt">🇵🇹 PT</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs-bar">
+          <button
+            class="tab-button active"
+            onclick="openTab('tab1')"
+            data-lang="tab1"
+          >
+            Thiết kế móng cột
+          </button>
+          <button class="tab-button" onclick="openTab('tab2')" data-lang="tab2">
+            Thiết kế anten
+          </button>
+        </div>
+
+        <!-- TAB 1 -->
+        <div id="tab1" class="tab-content active">
+          <!-- ===== NHẬP MÃ TRẠM (tra cứu từ Google Sheet) ===== -->
+          <div class="form-group">
+            <label data-lang="stationCode">Mã trạm:</label>
+            <input
+              type="text"
+              id="stationCode"
+              placeholder="Nhập mã trạm..."
+              data-lang-placeholder="stationCodePh"
+              autocomplete="off"
+              oninput="onStationChange()"
+            />
+            <div id="stationInfo"></div>
+            <div id="distanceStatus"></div>
+          </div>
+
+          <!-- 2 nút lấy tọa độ nằm trên, mỗi nút chiếm 1/2 dòng -->
+          <div class="form-group">
+            <div class="flex gap-2">
+              <button
+                class="btn btn-accent flex-1"
+                onclick="getGPS('tab1')"
+                title="Lấy GPS hiện tại"
+                data-lang-title="gpsTitle"
+              >
+                📍 <span data-lang="gpsBtn">GPS</span>
+              </button>
+              <button
+                class="btn btn-accent flex-1"
+                id="mapSelectBtn1"
+                onclick="toggleMapSelection('tab1')"
+                title="Chọn trên bản đồ"
+                data-lang-title="mapPickTitle"
+              >
+                🗺️ <span data-lang="mapPickBtn">Bản đồ</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label data-lang="lat">Tọa độ tâm cột (Vĩ độ):</label>
+            <input type="text" id="lat1" value="-25.976066" />
+          </div>
+
+          <div class="form-group">
+            <label data-lang="lng">Tọa độ tâm cột (Kinh độ):</label>
+            <input type="text" id="lng1" value="32.581523" />
+          </div>
+
+          <div class="form-group">
+            <label data-lang="towerType">Loại cột:</label>
+            <select id="loaiCot" onchange="updateMongCoOptions()">
+              <option value="day_co" data-lang="guyed">Dây co</option>
+              <option value="tu_dung" data-lang="self">Tự đứng</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label data-lang="gateAzimuth">Hướng cửa trạm (góc Azimuth):</label>
+            <input
+              type="number"
+              id="huongCuaTram"
+              value="0"
+              min="0"
+              max="360"
+            />
+          </div>
+
+          <div class="form-group">
+            <label data-lang="fence">Kích thước hàng rào (rộng x dài):</label>
+            <div class="flex gap-2">
+              <input
+                type="number"
+                id="kichThuocHangRaoRong"
+                value="6"
+                min="1"
+                step="0.1"
+              />
+              <input
+                type="number"
+                id="kichThuocHangRaoDai"
+                value="8"
+                min="1"
+                step="0.1"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label data-lang="anchors">Số móng co:</label>
+            <select id="soMongCo">
+              <option value="0">0</option>
+              <option value="3" selected>3</option>
+              <option value="4">4</option>
+            </select>
+            <small class="anchors-hint" data-lang="anchorsHint">
+              Dây co: 3, 4 | Tự đứng: 0
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label data-lang="height">Độ cao cột (m):</label>
+            <input type="number" id="doCaoCot" value="60.5" step="0.1" />
+          </div>
+
+          <button class="btn" onclick="veBanDoCot()" data-lang="drawMap1">
+            Vẽ bản đồ
+          </button>
+
+          <div id="infoPanel1" class="info-panel"></div>
+
+          <!-- ===== CHECKLIST NGHIỆM THU ===== -->
+          <div id="checklistSection" class="section-card">
+            <h3 data-lang="checklistTitle">📋 Checklist nghiệm thu</h3>
+
+            <div class="checklist-item" data-key="dienTich">
+              <label data-lang="clArea">Diện tích đất:</label>
+              <div class="radio-row">
+                <label>
+                  <input type="radio" name="dienTich" value="Y" />
+                  <span data-lang="yesOk">Đảm bảo</span>
+                </label>
+                <label>
+                  <input type="radio" name="dienTich" value="N" />
+                  <span data-lang="noOk">Không đảm bảo</span>
+                </label>
+              </div>
+              <input
+                type="text"
+                class="cl-note"
+                data-for="dienTich"
+                placeholder="Ghi chú..."
+                data-lang-placeholder="notePh"
+              />
+            </div>
+
+            <div class="checklist-item" data-key="biTrung">
+              <label data-lang="clTerrain">Địa hình:</label>
+              <div class="radio-row">
+                <label>
+                  <input type="radio" name="biTrung" value="N" />
+                  <span data-lang="noTerrain">Không trũng</span>
+                </label>
+                <label>
+                  <input type="radio" name="biTrung" value="Y" />
+                  <span data-lang="yesTerrain">Bị trũng</span>
+                </label>
+              </div>
+              <input
+                type="text"
+                class="cl-note"
+                data-for="biTrung"
+                placeholder="Ghi chú..."
+                data-lang-placeholder="notePh"
+              />
+            </div>
+
+            <div class="checklist-item" data-key="coDien">
+              <label data-lang="clPower">Nguồn điện:</label>
+              <div class="radio-row">
+                <label>
+                  <input type="radio" name="coDien" value="Y" />
+                  <span data-lang="yesPower">Có điện</span>
+                </label>
+                <label>
+                  <input type="radio" name="coDien" value="N" />
+                  <span data-lang="noPower">Không có</span>
+                </label>
+              </div>
+              <input
+                type="text"
+                class="cl-note"
+                data-for="coDien"
+                placeholder="Ghi chú..."
+                data-lang-placeholder="notePh"
+              />
+            </div>
+
+            <div class="checklist-item" data-key="anToan">
+              <label data-lang="clSafety">An toàn:</label>
+              <div class="radio-row">
+                <label>
+                  <input type="radio" name="anToan" value="Y" />
+                  <span data-lang="yesOk">Đảm bảo</span>
+                </label>
+                <label>
+                  <input type="radio" name="anToan" value="N" />
+                  <span data-lang="noOk">Không đảm bảo</span>
+                </label>
+              </div>
+              <input
+                type="text"
+                class="cl-note"
+                data-for="anToan"
+                placeholder="Ghi chú..."
+                data-lang-placeholder="notePh"
+              />
+            </div>
+
+            <button
+              class="btn btn-success"
+              style="margin-top: 0.85rem"
+              onclick="applyStationUpdate()"
+            >
+              💾 <span data-lang="applyBtn">Apply & Cập nhật trạm</span>
+            </button>
+            <div id="applyStatus"></div>
+          </div>
+        </div>
+
+        <!-- TAB 2 -->
+        <div id="tab2" class="tab-content">
+          <div class="form-group">
+            <div class="flex gap-2">
+              <button
+                class="btn btn-accent flex-1"
+                onclick="getGPS('tab2')"
+                title="Lấy GPS hiện tại"
+                data-lang-title="gpsTitle"
+              >
+                📍 <span data-lang="gpsBtn">GPS</span>
+              </button>
+              <button
+                class="btn btn-accent flex-1"
+                id="mapSelectBtn2"
+                onclick="toggleMapSelection('tab2')"
+                title="Chọn trên bản đồ"
+                data-lang-title="mapPickTitle"
+              >
+                🗺️ <span data-lang="mapPickBtn">Bản đồ</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label data-lang="lat">Tọa độ tâm cột (Vĩ độ):</label>
+            <input type="text" id="lat2" value="-25.744104" />
+          </div>
+
+          <div class="form-group">
+            <label data-lang="lng">Tọa độ tâm cột (Kinh độ):</label>
+            <input type="text" id="lng2" value="32.671572" />
+          </div>
+
+          <div class="form-group">
+            <label data-lang="antenCount">Số lượng anten:</label>
+            <input type="number" id="soAnten" value="3" min="1" />
+          </div>
+
+          <div id="anten-fields"></div>
+
+          <button
+            class="btn mt-4"
+            onclick="addAntenFields()"
+            data-lang="addAnten"
+          >
+            Thêm anten
+          </button>
+
+          <button
+            class="btn mt-4"
+            onclick="veBanDoAnten()"
+            data-lang="drawMap2"
+          >
+            Vẽ bản đồ
+          </button>
+
+          <div id="infoPanel2" class="info-panel"></div>
+        </div>
+      </div>
+
+      <div class="map-container">
+        <div id="map"></div>
+        <!-- La bàn overlay: mũi tên luôn hướng chính bắc -->
+        <div id="compass-overlay" aria-hidden="true">
+          <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="44" fill="rgba(15,23,42,0.6)" stroke="#ffffff" stroke-width="2.5" />
+            <g id="compass-needle">
+              <text x="50" y="21" text-anchor="middle" font-size="13" font-weight="800" fill="#ffffff" font-family="Segoe UI, sans-serif">N</text>
+              <polygon points="50,27 43,50 57,50" fill="#ef4444" />
+              <polygon points="50,73 43,50 57,50" fill="#e2e8f0" />
+              <circle cx="50" cy="50" r="4.5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" />
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Script -->
+    <script src="config.js" type="text/javascript"></script>
+    <script src="lang.js" type="text/javascript"></script>
+    <script src="script.js" type="text/javascript"></script>
+
+    <!-- ===== LOGIC ĐĂNG NHẬP ===== -->
+    <script>
+      // Kiểm tra session khi tải trang (phải có token mới coi là đăng nhập)
+      (function checkSession() {
+        const saved = sessionStorage.getItem("tower_user");
+        if (!saved) return;
+        try {
+          const user = JSON.parse(saved);
+          if (user && user.token) showApp(user.name);
+          else sessionStorage.removeItem("tower_user");
+        } catch (e) {
+          sessionStorage.removeItem("tower_user");
+        }
+      })();
+
+      // Cho phép nhấn Enter để đăng nhập
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          const screen = document.getElementById("login-screen");
+          if (!screen.classList.contains("hidden")) doLogin();
+        }
+      });
+
+      async function doLogin() {
+        const username = document.getElementById("login-username").value.trim();
+        const password = document.getElementById("login-password").value.trim();
+        const btn = document.getElementById("login-btn");
+        const errorBox = document.getElementById("login-error");
+
+        errorBox.classList.remove("show");
+
+        if (!username || !password) {
+          showError("Vui lòng nhập tên đăng nhập và mật khẩu.");
+          return;
+        }
+
+        // Hiện trạng thái đang xử lý
+        btn.disabled = true;
+        btn.textContent = "Đang kiểm tra...";
+
+        try {
+          // Gọi qua Worker proxy (AUTH_PROXY), không gọi Apps Script trực tiếp
+          const res = await fetch(CONFIG.AUTH_PROXY, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+          });
+
+          const data = await res.json();
+
+          if (data.success && data.token) {
+            // Lưu session kèm token xác thực do Worker phát
+            sessionStorage.setItem(
+              "tower_user",
+              JSON.stringify({ name: data.name, token: data.token }),
+            );
+            showApp(data.name);
+          } else {
+            showError(data.message || "Đăng nhập thất bại.");
+          }
+        } catch (err) {
+          showError("Không thể kết nối máy chủ. Vui lòng thử lại.");
+        }
+
+        btn.disabled = false;
+        btn.textContent = "Đăng nhập";
+      }
+
+      function showApp(name) {
+        document.getElementById("login-screen").classList.add("hidden");
+        document.getElementById("user-bar").classList.add("show");
+        document.getElementById("user-name").textContent = name;
+        // Tải danh sách trạm sau khi đã có token đăng nhập
+        if (typeof loadStations === "function") loadStations();
+      }
+
+      function doLogout() {
+        sessionStorage.removeItem("tower_user");
+        document.getElementById("login-screen").classList.remove("hidden");
+        document.getElementById("user-bar").classList.remove("show");
+        document.getElementById("login-username").value = "";
+        document.getElementById("login-password").value = "";
+      }
+
+      function showError(msg) {
+        const box = document.getElementById("login-error");
+        box.textContent = msg;
+        box.classList.add("show");
+      }
+    </script>
+
+    <!-- Load Google Maps API -->
+    <script>
+      /*
+function loadGoogleMaps() {
+    if (typeof CONFIG === "undefined") {
+      console.error("CONFIG chưa được load!");
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_KEY}&callback=initMap`;
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+}
+
+window.addEventListener("load", () => {
+    setTimeout(loadGoogleMaps, 200);
+});
+*/
+    </script>
+  </body>
+</html>

@@ -19,8 +19,7 @@ document.addEventListener("DOMContentLoaded", function () {
   loadGoogleMaps();
   // Cập nhật dropdown móng co khi DOM sẵn sàng
   updateMongCoOptions();
-  // Load danh sách trạm + bind sự kiện kiểm tra sai lệch khi đổi lat/lng
-  loadStations();
+  // loadStations() gọi sau khi đăng nhập (showApp) — /api/stations cần token
   ["lat1", "lng1"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.addEventListener("input", checkStationDistance);
@@ -28,59 +27,163 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 /* ============================================================
-   STATIONS: Load danh sách, chọn trạm, kiểm tra sai lệch, apply
+   STATIONS: Load danh sách, tra mã, kiểm tra sai lệch, apply
    ============================================================ */
 let stationsData = []; // cache trạm từ Sheet
+let designMarker = null; // marker vị trí thiết kế
+let designLine = null; // đường nối thiết kế ↔ thực tế
+
+// Helper i18n cho text dynamic (fallback về VI nếu thiếu)
+function t(key) {
+  const lang = document.getElementById("languageSelect")?.value || "vi";
+  return (
+    (typeof translations !== "undefined" &&
+      translations[lang] &&
+      translations[lang][key]) ||
+    translations.vi[key] ||
+    key
+  );
+}
+
+// Lấy token đăng nhập đã lưu (Worker phát khi login thành công)
+function getToken() {
+  try {
+    return JSON.parse(sessionStorage.getItem("tower_user") || "{}").token || "";
+  } catch (e) {
+    return "";
+  }
+}
+
+// Token hết hạn / không hợp lệ → buộc đăng nhập lại
+function handleSessionExpired() {
+  alert("⚠️ Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+  if (typeof doLogout === "function") doLogout();
+}
 
 async function loadStations() {
+  const token = getToken();
+  if (!token) return; // chưa đăng nhập
   try {
     const proxy = CONFIG.AUTH_PROXY.replace("/api/auth/login", "/api/stations");
-    const res = await fetch(proxy);
+    const res = await fetch(proxy, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      handleSessionExpired();
+      return;
+    }
     const data = await res.json();
     if (!data.success) {
       console.warn("Không load được Stations:", data.message);
       return;
     }
     stationsData = data.stations || [];
-    const sel = document.getElementById("stationCode");
-    stationsData.forEach((s) => {
-      const opt = document.createElement("option");
-      opt.value = s.code;
-      opt.textContent = s.code;
-      sel.appendChild(opt);
-    });
   } catch (err) {
     console.error("Lỗi loadStations:", err);
   }
 }
 
+// Tra mã trạm theo input (không phân biệt hoa/thường, trim khoảng trắng)
 function getSelectedStation() {
-  const code = document.getElementById("stationCode").value;
-  return stationsData.find((s) => s.code === code) || null;
+  const code = (document.getElementById("stationCode").value || "").trim();
+  if (!code) return null;
+  return (
+    stationsData.find(
+      (s) => (s.code || "").toString().toLowerCase() === code.toLowerCase(),
+    ) || null
+  );
+}
+
+function clearStationLine() {
+  if (designMarker) {
+    designMarker.setMap(null);
+    designMarker = null;
+  }
+  if (designLine) {
+    designLine.setMap(null);
+    designLine = null;
+  }
+}
+
+// Vẽ điểm thiết kế (chấm xanh dương) + đường nối tới điểm thực tế.
+// Màu đường: xanh lá nếu đạt sai lệch, đỏ nếu vượt.
+function drawDesignActualLine(designLat, designLng, actualLat, actualLng, ok) {
+  if (!map || typeof google === "undefined") return;
+  clearStationLine();
+  designMarker = new google.maps.Marker({
+    position: { lat: designLat, lng: designLng },
+    map: map,
+    title: "Vị trí thiết kế",
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 9,
+      fillColor: "#3b82f6",
+      fillOpacity: 1,
+      strokeColor: "#ffffff",
+      strokeWeight: 2,
+    },
+    zIndex: 9999,
+  });
+  designLine = new google.maps.Polyline({
+    path: [
+      { lat: designLat, lng: designLng },
+      { lat: actualLat, lng: actualLng },
+    ],
+    geodesic: true,
+    strokeColor: ok ? "#10b981" : "#ef4444",
+    strokeOpacity: 0.9,
+    strokeWeight: 3,
+    map: map,
+    zIndex: 9998,
+  });
 }
 
 function onStationChange() {
-  const s = getSelectedStation();
+  const code = (document.getElementById("stationCode").value || "").trim();
   const info = document.getElementById("stationInfo");
-  if (!s) {
+  const statusBox = document.getElementById("distanceStatus");
+
+  // Trống → reset tất cả
+  if (!code) {
     info.style.display = "none";
-    document.getElementById("distanceStatus").style.display = "none";
+    statusBox.style.display = "none";
+    clearStationLine();
     return;
   }
+
+  const s = getSelectedStation();
+
+  // Mã không tồn tại trong danh sách
+  if (!s) {
+    info.style.display = "block";
+    info.style.color = "#991b1b";
+    info.textContent = `❌ ${t("stNotFound")}: "${code}"`;
+    statusBox.style.display = "none";
+    clearStationLine();
+    return;
+  }
+
+  // Trạm hợp lệ → hiện thông tin thiết kế
   info.style.display = "block";
-  info.innerHTML = `Thiết kế: <b>${s.latDesign}, ${s.lngDesign}</b> • Sai lệch cho phép: <b>${s.maxDeviationM} m</b>`;
+  info.style.color = "#64748b";
+  info.innerHTML = `${t("stDesign")}: <b>${s.latDesign}, ${s.lngDesign}</b> • ${t("stMaxDev")}: <b>${s.maxDeviationM} m</b>`;
 
-  // Nếu trạm đã có tọa độ thực tế → tự fill, ngược lại fill theo thiết kế
-  const lat = s.latActual ?? s.latDesign;
-  const lng = s.lngActual ?? s.lngDesign;
-  if (lat != null) document.getElementById("lat1").value = lat;
-  if (lng != null) document.getElementById("lng1").value = lng;
+  // Auto-fill chỉ khi sheet đã có tọa độ thực tế (tránh distance = 0)
+  if (s.latActual != null && s.lngActual != null) {
+    document.getElementById("lat1").value = s.latActual;
+    document.getElementById("lng1").value = s.lngActual;
+  }
 
-  // Khôi phục checklist đã lưu (nếu có)
+  // Tự động fill độ cao từ HeightDesign (user vẫn có thể nhập tay override)
+  if (s.heightDesign != null && !isNaN(s.heightDesign)) {
+    document.getElementById("doCaoCot").value = s.heightDesign;
+  }
+
+  // Khôi phục checklist đã lưu
   ["dienTich", "biTrung", "coDien", "anToan"].forEach((key) => {
     const raw = s[key] || "";
-    const flag = raw.charAt(0); // 'Y' hoặc 'N'
-    const note = raw.slice(2).trim(); // sau "Y - " hoặc "N - "
+    const flag = raw.charAt(0);
+    const note = raw.slice(2).trim();
     document
       .querySelectorAll(`input[name="${key}"]`)
       .forEach((r) => (r.checked = r.value === flag));
@@ -108,12 +211,14 @@ function checkStationDistance() {
   const box = document.getElementById("distanceStatus");
   if (!s || s.latDesign == null) {
     box.style.display = "none";
+    clearStationLine();
     return;
   }
   const lat = parseFloat(document.getElementById("lat1").value);
   const lng = parseFloat(document.getElementById("lng1").value);
   if (isNaN(lat) || isNaN(lng)) {
     box.style.display = "none";
+    clearStationLine();
     return;
   }
   const d = haversine(s.latDesign, s.lngDesign, lat, lng);
@@ -122,8 +227,11 @@ function checkStationDistance() {
   box.style.background = ok ? "#d1fae5" : "#fee2e2";
   box.style.color = ok ? "#065f46" : "#991b1b";
   box.textContent = ok
-    ? `✅ Khoảng cách ${d.toFixed(2)} m (≤ ${s.maxDeviationM} m) — Đạt`
-    : `❌ Khoảng cách ${d.toFixed(2)} m (> ${s.maxDeviationM} m) — Không đảm bảo`;
+    ? `✅ ${t("stDistance")} ${d.toFixed(2)} m (≤ ${s.maxDeviationM} m) — ${t("stDistOK")}`
+    : `❌ ${t("stDistance")} ${d.toFixed(2)} m (> ${s.maxDeviationM} m) — ${t("stDistFail")}`;
+
+  // Vẽ marker thiết kế + đường nối, màu theo trạng thái (xanh/đỏ)
+  drawDesignActualLine(s.latDesign, s.lngDesign, lat, lng, ok);
 }
 
 // Gộp Y/N + ghi chú thành "Y - note" hoặc "N - note"
@@ -154,7 +262,12 @@ async function applyStationUpdate() {
     return;
   }
 
-  const user = JSON.parse(sessionStorage.getItem("tower_user") || "{}").name || "";
+  const token = getToken();
+  if (!token) {
+    status.style.color = "#991b1b";
+    status.textContent = "⚠️ Vui lòng đăng nhập lại.";
+    return;
+  }
 
   const proxy = CONFIG.AUTH_PROXY.replace(
     "/api/auth/login",
@@ -167,7 +280,10 @@ async function applyStationUpdate() {
   try {
     const res = await fetch(proxy, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         code: s.code,
         lat: lat,
@@ -176,9 +292,12 @@ async function applyStationUpdate() {
         biTrung: getChecklistValue("biTrung"),
         coDien: getChecklistValue("coDien"),
         anToan: getChecklistValue("anToan"),
-        user: user,
       }),
     });
+    if (res.status === 401) {
+      handleSessionExpired();
+      return;
+    }
     const data = await res.json();
     if (data.success) {
       status.style.color = "#065f46";
@@ -248,6 +367,9 @@ function initMap() {
       document.getElementById(`lat${tabNum}`).value = lat;
       document.getElementById(`lng${tabNum}`).value = lng;
 
+      // Cập nhật khoảng cách + đường nối khi click map ở Tab 1
+      if (tabNum === 1) checkStationDistance();
+
       // Tắt chế độ chọn
       toggleMapSelection(mapSelectionTab);
 
@@ -257,8 +379,23 @@ function initMap() {
     }
   });
 
+  // La bàn: cập nhật khi bản đồ đổi hướng (map 2D luôn heading 0 → kim chỉ lên)
+  map.addListener("heading_changed", updateCompass);
+  updateCompass();
+
   openTab("tab1");
   addAntenFields();
+}
+
+/* ============================================================
+   LA BÀN: kim luôn hướng chính bắc (xoay ngược heading bản đồ)
+   ============================================================ */
+function updateCompass() {
+  const needle = document.getElementById("compass-needle");
+  if (!needle) return;
+  const heading =
+    map && typeof map.getHeading === "function" ? map.getHeading() || 0 : 0;
+  needle.setAttribute("transform", `rotate(${-heading} 50 50)`);
 }
 
 function openTab(tabName) {
@@ -341,6 +478,9 @@ function getGPS(tabName) {
 
       document.getElementById(`lat${tabName === "tab1" ? 1 : 2}`).value = lat;
       document.getElementById(`lng${tabName === "tab1" ? 1 : 2}`).value = lng;
+
+      // Cập nhật khoảng cách + đường nối khi lấy GPS ở Tab 1
+      if (tabName === "tab1") checkStationDistance();
 
       btn.innerText = "✅ Thành công!";
       setTimeout(() => {
@@ -565,6 +705,9 @@ function onDragAll(event) {
   document.getElementById("lng1").value = newCenter.lng().toFixed(6);
   document.getElementById("lat2").value = newCenter.lat().toFixed(6);
   document.getElementById("lng2").value = newCenter.lng().toFixed(6); // Sửa lỗi ở đây
+
+  // Cập nhật khoảng cách + đường nối khi kéo marker (Tab 1)
+  checkStationDistance();
 
   // Cập nhật vị trí của tất cả các đối tượng
   markers.forEach((m) => {
