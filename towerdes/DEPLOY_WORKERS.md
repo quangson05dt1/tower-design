@@ -1,241 +1,96 @@
-# 🚀 Hướng dẫn Deploy Cloudflare Workers Proxy
+# Hướng dẫn Deploy Cloudflare Worker
 
-## 📋 Chuẩn bị
+Worker `towerdesign` vừa phục vụ giao diện vừa làm API proxy. Chạy mọi lệnh
+ở **thư mục gốc** (`towerdesign/`, nơi có `wrangler.jsonc`).
 
-### 1. Cài đặt Wrangler CLI
+## 1. Chuẩn bị
 
-```bash
-npm install -g @cloudflare/wrangler
-```
-
-### 2. Đăng nhập Cloudflare
+Cài Node.js, rồi đăng nhập Cloudflare (lệnh sẽ mở trình duyệt để xác thực):
 
 ```bash
-wrangler login
+npx wrangler login
 ```
 
-> Điều này sẽ mở trình duyệt để xác thực tài khoản Cloudflare
+## 2. Cấu hình Secrets
 
----
-
-## 🔐 Cấu hình Secrets (API Keys)
-
-### 1. Thêm Google Maps API Key
+API key và URL nhạy cảm lưu ở Cloudflare Secrets, không nằm trong source.
 
 ```bash
-wrangler secret put GOOGLE_MAPS_KEY
-# Nhập API key của bạn khi được hỏi
+# Khóa Google Maps API
+npx wrangler secret put GOOGLE_MAPS_KEY
+
+# URL Web App của Google Apps Script (dạng .../exec)
+npx wrangler secret put AUTH_URL
+
+# Khóa ký token đăng nhập — chuỗi ngẫu nhiên, tự sinh rồi dán vào:
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+npx wrangler secret put APP_SECRET
 ```
 
-### 2. Thêm Google Apps Script Auth URL
+Kiểm tra đã có đủ: `npx wrangler secret list`
+
+| Secret | Dùng để |
+|---|---|
+| `GOOGLE_MAPS_KEY` | Gọi Google Maps API (key ẩn khỏi client) |
+| `AUTH_URL` | Địa chỉ Apps Script backend |
+| `APP_SECRET` | Ký & xác minh token đăng nhập (HMAC) |
+
+## 3. Deploy Worker
 
 ```bash
-wrangler secret put AUTH_URL
-# Nhập URL đầy đủ của Google Apps Script, ví dụ:
-# https://script.google.com/macros/s/AKfycbyLx31Mr4l_pd2i_K8gG_zSQ1-JtEcZT-Nniz3bUDuWgaaD7RzVaOTCrtyRmC5V1vfS6Q/exec
+npx wrangler deploy
 ```
 
-### 3. Xác nhận Secrets đã được lưu
+Kết quả: `https://towerdesign.soncatech.workers.dev`
+
+Wrangler chỉ đưa lên Cloudflare thư mục `towerdes/public/` và code Worker —
+`src/`, tài liệu `.md`, `package.json`... không bị publish ra ngoài.
+
+## 4. Deploy backend (Google Apps Script)
+
+Code Worker và backend Apps Script triển khai **riêng biệt**.
+
+1. Mở project Apps Script, dán đè toàn bộ `login/Code.gs`, lưu lại.
+2. **Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy**.
+   Dùng "New version" để **giữ nguyên** URL `/exec`.
+3. Nếu URL `/exec` thay đổi → cập nhật lại secret:
+   `npx wrangler secret put AUTH_URL`
+
+Hướng dẫn tạo Sheet + Apps Script lần đầu: xem `../login/README_LOGIN.md`.
+
+## 5. Kiểm tra sau khi deploy
 
 ```bash
-wrangler secret list
+# Worker còn sống
+curl https://towerdesign.soncatech.workers.dev/api/health
+
+# Phiên bản Code.gs đang chạy (có trường "version" là đã deploy bản mới)
+curl https://towerdesign.soncatech.workers.dev/api/backend
+
+# API dữ liệu phải chặn truy cập không token → trả HTTP 401
+curl -i https://towerdesign.soncatech.workers.dev/api/stations
 ```
 
----
-
-## 🧪 Test Locally (Optional)
-
-```bash
-# Start local development server
-wrangler dev
-
-# Test endpoint:
-# curl http://localhost:8787/api/health
-```
-
----
-
-## 🚀 Deploy Worker
-
-### Option 1: Deploy Worker riêng biệt
-
-```bash
-wrangler deploy
-```
-
-Kết quả:
-
-```
-✓ Deployed successfully to https://tower-design-api.your-username.workers.dev
-```
-
-Ghi nhớ URL này để sử dụng trong frontend.
-
-### Option 2: Deploy cùng Cloudflare Pages (Advanced)
-
-Nếu muốn Worker + Pages cùng domain:
-
-1. Vào Cloudflare Dashboard
-2. **Pages** → Project của bạn
-3. Settings → **Functions**
-4. Kết nối `/api/*` routes tới Workers
-
----
-
-## 🔗 Cập nhật Frontend
-
-Khi deploy, Frontend cần gọi qua proxy:
-
-### Thay đổi trong `script.js`:
-
-#### Cũ (trực tiếp):
-
-```javascript
-const response = await fetch(
-  `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_KEY}`,
-);
-```
-
-#### Mới (qua proxy):
-
-```javascript
-const response = await fetch(
-  `${CONFIG.GOOGLE_MAPS_PROXY}?lat=${lat}&lng=${lng}`,
-);
-```
-
----
-
-## 🌐 Sử dụng API Proxy trong Frontend
-
-### Health Check
-
-```bash
-curl https://tower-design-api.your-username.workers.dev/api/health
-```
-
-### Lấy Config
-
-```bash
-curl https://tower-design-api.your-username.workers.dev/api/config
-```
-
-### Auth Login (POST)
-
-```bash
-curl -X POST https://tower-design-api.your-username.workers.dev/api/auth/login \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=user&password=pass"
-```
-
-### Maps Geocode (POST)
-
-```bash
-curl -X POST https://tower-design-api.your-username.workers.dev/api/maps/geocode \
-  -H "Content-Type: application/json" \
-  -d '{"lat": -25.744104, "lng": 32.671572}'
-```
-
----
-
-## 📌 Cập nhật `config.js`
-
-Cấu hình URL Worker proxy (thay YOUR_USERNAME):
-
-```javascript
-const CONFIG = {
-  GOOGLE_MAPS_PROXY:
-    "https://tower-design-api.YOUR_USERNAME.workers.dev/api/maps/geocode",
-  AUTH_PROXY:
-    "https://tower-design-api.YOUR_USERNAME.workers.dev/api/auth/login",
-};
-```
-
----
-
-## ✅ Kiểm tra Deploy
-
-### 1. Xác nhận Worker đang chạy
-
-```bash
-curl https://tower-design-api.your-username.workers.dev/api/health
-```
-
-Kết quả:
-
-```json
-{ "status": "ok", "timestamp": "2024-05-10T10:30:00.000Z" }
-```
-
-### 2. Test Auth Proxy
-
-```bash
-curl -X POST https://tower-design-api.your-username.workers.dev/api/auth/login \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "myKey=123456"
-```
-
----
-
-## 🔄 Update Secrets sau khi Deploy
-
-Nếu cần thay đổi API key:
-
-```bash
-wrangler secret put GOOGLE_MAPS_KEY
-# Nhập giá trị mới
-```
-
-Secrets được cập nhật ngay lập tức, không cần redeploy.
-
----
-
-## 🛠️ Troubleshooting
-
-### Error: "Secrets not configured"
-
-- Chạy `wrangler secret put GOOGLE_MAPS_KEY`
-- Chạy `wrangler secret put AUTH_URL`
-
-### Error: "Failed to authenticate"
-
-- Chạy `wrangler login` lại
-- Kiểm tra tài khoản Cloudflare có quyền Workers không
-
-### Error: "Not found (404)"
-
-- Kiểm tra endpoint URL có đúng không
-- Kiểm tra method (GET/POST) có đúng không
-
----
-
-## 📊 Monitoring
-
-Xem logs của Worker:
-
-```bash
-wrangler tail
-```
-
-Trên Cloudflare Dashboard:
-
-- Workers → tower-design-api → Analytics
-- Xem request/response logs
-
----
-
-## 🎯 Lợi ích sau khi deploy
-
-✅ API keys hoàn toàn ẩn  
-✅ Không lộ Google Apps Script URL  
-✅ Có thể log/monitor tất cả API calls  
-✅ Có thể implement rate limiting  
-✅ CORS được xử lý tự động  
-✅ An toàn hơn khi deploy frontend
-
----
-
-## Cần giúp?
-
-- Cloudflare Docs: https://developers.cloudflare.com/workers/
-- Wrangler CLI: https://developers.cloudflare.com/workers/wrangler/commands/
+## Các endpoint
+
+| Endpoint | Method | Cần token | Mô tả |
+|---|---|---|---|
+| `/api/config` | GET | – | Trả Google Maps key cho client |
+| `/api/auth/login` | POST | – | Đăng nhập, phát token |
+| `/api/stations` | GET | ✔ | Danh sách trạm |
+| `/api/stations/update` | POST | ✔ | Ghi tọa độ thực + checklist |
+| `/api/maps/geocode` | POST | – | Reverse geocoding |
+| `/api/backend` | GET | – | Phiên bản Apps Script |
+| `/api/health` | GET | – | Kiểm tra Worker |
+
+## Bảo mật
+
+- Khóa `GOOGLE_MAPS_KEY` theo HTTP referrer trong Google Cloud Console
+  (`towerdesign.soncatech.workers.dev/*`) — key Maps bắt buộc lộ ở client.
+- Không commit giá trị secret thật vào repo.
+
+## Xử lý sự cố
+
+- **Đăng nhập báo "Server chưa cấu hình APP_SECRET"** → chạy `npx wrangler secret put APP_SECRET`.
+- **`/api/backend` không có trường `version`** → Code.gs chưa deploy bản mới (xem mục 4).
+- **Xem log Worker theo thời gian thực**: `npx wrangler tail`

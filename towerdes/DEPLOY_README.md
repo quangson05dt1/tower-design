@@ -1,176 +1,52 @@
-# Tower Design - An toàn với Cloudflare Workers Proxy
+# Tower Design — Tổng quan triển khai
 
-## 📂 Cấu trúc Project
+Web app thiết kế vị trí cột & anten, có đăng nhập. Toàn bộ chạy trên **một
+Cloudflare Worker** vừa phục vụ giao diện vừa làm API proxy để ẩn API key.
+
+## Cấu trúc
 
 ```
-towerdes/
-├── index.html              ← HTML interface
-├── script.js               ← Frontend logic (đã cập nhật dùng proxy)
-├── lang.js                 ← Language support
-├── config.js               ← Config (chỉ chứa proxy URLs)
-├── .env.example            ← Template cho environment variables
-├── .gitignore              ← Không commit .env, node_modules
-├── package.json            ← Dependencies cho Wrangler
-├── wrangler.toml           ← Cloudflare Workers config
-├── DEPLOY_WORKERS.md       ← Hướng dẫn deploy chi tiết
-├── DEPLOY_README.md        ← File này
-└── src/
-    └── index.js            ← Cloudflare Workers code (API Proxy)
+towerdesign/                 ← thư mục gốc — chạy `wrangler deploy` tại đây
+├── wrangler.jsonc           ← cấu hình Worker
+├── towerdes/
+│   ├── public/              ← file tĩnh (Worker đưa lên Cloudflare)
+│   │   ├── index.html
+│   │   ├── config.js        ← chỉ chứa URL proxy, KHÔNG có API key
+│   │   ├── lang.js
+│   │   └── script.js
+│   └── src/
+│       └── index.js         ← code Worker: API proxy + xác thực token
+└── login/
+    ├── Code.gs              ← backend Google Apps Script (auth + dữ liệu)
+    └── README_LOGIN.md      ← hướng dẫn tạo Google Sheet + Apps Script
 ```
 
----
+## Kiến trúc
 
-## 🚀 Quick Start
+```
+Trình duyệt
+   │  (cùng tên miền — không vướng CORS)
+   ▼
+Cloudflare Worker  towerdesign.soncatech.workers.dev
+   ├─ /api/*       → proxy, dùng Secrets (API key được ẩn)
+   └─ còn lại      → phục vụ file tĩnh trong public/
+   │
+   ▼
+Google Apps Script (Code.gs)  ──►  Google Sheet (Users, Stations)
+```
 
-### 1. Setup Local
+- **API key không nằm trong source** — lưu ở Cloudflare Secrets.
+- **Đăng nhập** trả về token ký HMAC; các API dữ liệu trạm yêu cầu token.
+
+## Triển khai nhanh
 
 ```bash
-cd towerdes
-npm install
+npx wrangler login                       # lần đầu
+npx wrangler secret put GOOGLE_MAPS_KEY
+npx wrangler secret put AUTH_URL
+npx wrangler secret put APP_SECRET
+npx wrangler deploy
 ```
 
-### 2. Cấu hình Secrets
-
-```bash
-wrangler login
-wrangler secret put GOOGLE_MAPS_KEY       # Nhập API key
-wrangler secret put AUTH_URL              # Nhập Google Apps Script URL
-```
-
-### 3. Deploy
-
-```bash
-wrangler deploy
-```
-
-### 4. Cập nhật Frontend
-
-Thay URL Worker vào script.js (xem DEPLOY_WORKERS.md)
-
----
-
-## 🔐 Bảo vệ
-
-### Trước (không an toàn):
-
-- API keys công khai trong `config.js`
-- Frontend gọi trực tiếp Google APIs
-- Có thể bị abuse/overuse
-
-### Sau (an toàn):
-
-- API keys lưu trong Cloudflare Secrets
-- Frontend gọi qua Worker Proxy (`/api/...`)
-- Có thể implement rate limiting/monitoring
-
----
-
-## 📚 Tài liệu
-
-- **[DEPLOY_WORKERS.md](./DEPLOY_WORKERS.md)** - Hướng dẫn deploy chi tiết
-- **[src/index.js](./src/index.js)** - Worker code với chi tiết
-- **[config.js](./config.js)** - Config proxy URLs
-- **[.env.example](./.env.example)** - Template secrets
-
----
-
-## ✅ Testing
-
-### Test Health Check
-
-```bash
-curl https://tower-design-api.YOUR_USERNAME.workers.dev/api/health
-```
-
-### Test Config
-
-```bash
-curl https://tower-design-api.YOUR_USERNAME.workers.dev/api/config
-```
-
-### Test Geocode (Maps)
-
-```bash
-curl -X POST https://tower-design-api.YOUR_USERNAME.workers.dev/api/maps/geocode \
-  -H "Content-Type: application/json" \
-  -d '{"lat": -25.744104, "lng": 32.671572}'
-```
-
----
-
-## 🆘 Troubleshooting
-
-### "Secrets not configured"
-
-```bash
-wrangler secret list
-# Nếu rỗng, chạy:
-wrangler secret put GOOGLE_MAPS_KEY
-wrangler secret put AUTH_URL
-```
-
-### "Worker not responding"
-
-```bash
-wrangler tail          # Xem logs
-wrangler deploy        # Deploy lại
-```
-
-### "CORS error"
-
-- Kiểm tra `corsHeaders` trong `src/index.js`
-- Đảm bảo `Access-Control-Allow-Origin` được set
-
----
-
-## 🎯 Deploy Flow
-
-```
-Local Dev
-    ↓
-git push origin main
-    ↓
-Cloudflare Pages (Static Site)
-    ↓
-Frontend calls /api/... (relative URL)
-    ↓
-Routed to Cloudflare Workers
-    ↓
-Worker uses Secrets (API keys)
-    ↓
-Call external APIs (Google Maps, Apps Script)
-    ↓
-Return response to Frontend
-```
-
----
-
-## 📌 Lưu ý quan trọng
-
-⚠️ **Không commit `.env` file!**
-
-- `.gitignore` đã exclude nó
-- Production dùng `wrangler secret put`
-
-⚠️ **Cloudflare Secrets tồn tại ở mỗi environment:**
-
-- Production (custom domain)
-- Staging
-- Development
-
-✅ **Tất cả requests đều qua Proxy**
-
-- Không có hardcoded API keys
-- An toàn hơn khi deploy public
-
----
-
-## 🔗 Links
-
-- Cloudflare Workers Docs: https://developers.cloudflare.com/workers/
-- Wrangler CLI: https://developers.cloudflare.com/workers/wrangler/
-- Google Cloud Console: https://console.cloud.google.com/
-
----
-
-**Next steps:** Xem [DEPLOY_WORKERS.md](./DEPLOY_WORKERS.md) để deploy chi tiết.
+- Chi tiết từng bước: xem **[DEPLOY_WORKERS.md](./DEPLOY_WORKERS.md)**.
+- Cài đặt backend đăng nhập (Sheet + Apps Script): xem **[../login/README_LOGIN.md](../login/README_LOGIN.md)**.
