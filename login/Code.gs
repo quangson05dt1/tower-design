@@ -10,6 +10,7 @@
 const SHEET_ID = '1V0n56d9JvGTZ_QYr04gbvZE3O6VtrvV07vbIK41kAvU';
 const SHEET_USERS = 'Users';
 const SHEET_STATIONS = 'Stations';
+const VERSION = '2026-05-22'; // đổi mỗi lần sửa Code.gs để biết đã deploy chưa
 
 function doGet(e) {
   const params = e.parameter || {};
@@ -18,7 +19,8 @@ function doGet(e) {
     if (action === 'login')    return jsonResp(handleLogin(params));
     if (action === 'stations') return jsonResp(handleStations());
     if (action === 'update')   return jsonResp(handleUpdate(params));
-    return jsonResp({ status: 'ok', message: 'Tower Design Server' });
+    if (action === 'version')  return jsonResp({ success: true, version: VERSION });
+    return jsonResp({ status: 'ok', message: 'Tower Design Server', version: VERSION });
   } catch (err) {
     return jsonResp({ success: false, message: 'Lỗi hệ thống: ' + err.message });
   }

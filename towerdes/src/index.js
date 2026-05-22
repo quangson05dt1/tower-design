@@ -266,6 +266,32 @@ export default {
       return json({ status: "ok", timestamp: new Date().toISOString() });
     }
 
+    // ============================================================
+    // GET /api/backend - phiên bản Apps Script đang chạy (kiểm tra deploy)
+    // ============================================================
+    if (url.pathname === "/api/backend" && method === "GET") {
+      try {
+        if (!env.AUTH_URL) {
+          return json(
+            { success: false, message: "AUTH_URL not configured" },
+            500,
+          );
+        }
+        const gsUrl = new URL(env.AUTH_URL);
+        gsUrl.searchParams.set("action", "version");
+        const response = await fetch(gsUrl.toString());
+        return new Response(await response.text(), {
+          status: response.status,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      } catch {
+        return json(
+          { success: false, message: "Không gọi được Apps Script." },
+          500,
+        );
+      }
+    }
+
     // /api/* không khớp route → 404 JSON
     if (url.pathname.startsWith("/api/")) {
       return json(
