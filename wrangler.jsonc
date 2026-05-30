@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "towerdesign",
+  "name": "tower-design",
   "compatibility_date": "2026-05-10",
   "main": "towerdes/src/index.js",
   "observability": {
